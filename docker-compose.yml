@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=http://localhost:5000
+      - VITE_ML_API_URL=http://localhost:5001
+    depends_on:
+      - backend
+      - ml-backend
+
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - ALLOWED_ORIGINS=http://localhost,http://localhost:80
+
+  ml-backend:
+    build: ./ml-backend
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - FLASK_ENV=production
+      - ALLOWED_ORIGINS=http://localhost,http://localhost:80
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
