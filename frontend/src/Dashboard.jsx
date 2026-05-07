@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
-import { ML_API_BASE_URL } from './config';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const ML_API_URL = import.meta.env.VITE_ML_API_URL || 'http://localhost:5001';
 
 const Icon = ({ path, className = '' }) => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
