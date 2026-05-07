@@ -12,9 +12,10 @@
 }
 
 .alerts-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 2.5rem;
   margin-bottom: 2.5rem;
 }
 
@@ -110,6 +111,21 @@
 }
 .ac-tag.danger { background: #fee2e2; color: #b91c1c; }
 .ac-tag.caution { background: #fef3c7; color: #b45309; }
+
+.ac-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+.ac-badge.critical { background: #fee2e2; color: #b91c1c; }
+.ac-badge.warning  { background: #fef3c7; color: #b45309; }
+.ac-badge.info     { background: #eff6ff; color: #1d4ed8; }
+
+.btn-sm { padding: 0.4rem 0.9rem; font-size: 0.85rem; }
+.mt-2   { margin-top: 0.5rem; }
 
 /* Config Cards */
 .alerts-config {

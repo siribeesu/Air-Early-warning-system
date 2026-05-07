@@ -39,7 +39,7 @@ export default function Dashboard({ onNavigate, onLogout, locationQuery, user })
       setLoading(true);
       setError(null);
       try {
-        const query = locationQuery || 'Central Park, NY';
+        const query = locationQuery || (user?.saved_locations && user.saved_locations.length > 0 ? user.saved_locations[0].name : 'London, UK');
         const res = await fetch(`${ML_API_BASE_URL}/api/aqi?location=${encodeURIComponent(query)}`);
         const json = await res.json();
         if (json.status === 'success') {
@@ -48,7 +48,7 @@ export default function Dashboard({ onNavigate, onLogout, locationQuery, user })
           if (active) setError(json.message || 'Failed to fetch');
         }
       } catch (err) {
-        if (active) setError('Could not connect to Aura backend.');
+        if (active) setError('Could not connect to Air backend.');
       } finally {
         if (active) setLoading(false);
       }
@@ -57,10 +57,21 @@ export default function Dashboard({ onNavigate, onLogout, locationQuery, user })
     return () => { active = false; };
   }, [locationQuery]);
 
-  if (loading) return <div className="dashboard-layout"><div style={{margin:'auto', padding:'5rem', fontSize:'1.5rem', fontWeight:'bold'}}>Initializing Neural Sensors...</div></div>;
-  if (error) return <div className="dashboard-layout"><div style={{margin:'auto', padding:'5rem', fontSize:'1.5rem', color:'red'}}>Error: {error}</div></div>;
+  const [viewMode, setViewMode] = useState('day'); // 'day' or 'week'
+
+  if (loading) return (
+    <main className="dashboard-main" style={{display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+      <div style={{color: '#64748b', fontSize: '0.9rem', fontWeight: '500', letterSpacing: '1px'}}>Synchronizing...</div>
+    </main>
+  );
+  if (error) return (
+    <main className="dashboard-main" style={{display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+      <div style={{color: '#dc2626', fontSize: '0.9rem', fontWeight: '500'}}>{error}</div>
+    </main>
+  );
 
   const metrics = apiData?.data || {};
+  const forecast = apiData?.forecast || { hourly: [], daily: [] };
   const currentCategory = apiData?.category || 'Moderate';
   const categoryClass = currentCategory.split(' ')[0].toLowerCase() === 'good' ? 'good' : (currentCategory.split(' ')[0].toLowerCase() === 'hazardous' ? 'poor' : 'moderate');
 
@@ -72,66 +83,6 @@ export default function Dashboard({ onNavigate, onLogout, locationQuery, user })
 
   return (
     <>
-      <div className="dashboard-layout">
-        <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="icon-badge"><Icon path={<path d="M2 12A10 10 0 1 0 22 12" />} /></div>
-          <div>
-            <h3>Aura Intelligence</h3>
-            <p>The Ethereal Observer</p>
-          </div>
-        </div>
-
-        <nav className="sidebar-nav">
-          <ul>
-            <li><a href="#" onClick={() => onNavigate && onNavigate('landing')}><Icon path={paths.home} /> Home</a></li>
-            <li><a href="#" className="active" onClick={() => onNavigate && onNavigate('dashboard')}><Icon path={paths.dashboard} /> Dashboard</a></li>
-            <li><a href="#" onClick={() => onNavigate && onNavigate('heatmap')}><Icon path={paths.heatmap} /> Heatmap</a></li>
-            <li><a href="#" onClick={() => onNavigate && onNavigate('forecast')}><Icon path={paths.forecast} /> Forecast</a></li>
-            <li><a href="#" onClick={() => onNavigate && onNavigate('alerts')}><Icon path={paths.alerts} /> Alerts</a></li>
-          </ul>
-        </nav>
-
-
-
-        <nav className="sidebar-footer-nav">
-          <ul>
-            <li><a href="#"><Icon path={paths.settings} /> Settings</a></li>
-            <li><a href="#"><Icon path={paths.support} /> Support</a></li>
-          </ul>
-        </nav>
-
-        <div className="user-sidebar-info">
-          {user ? (
-            <>
-              <div className="user-details">
-                <div className="user-avatar">{user.name?.[0] || 'O'}</div>
-                <div className="user-meta">
-                  <span className="user-name">{user.name}</span>
-                  <span className="user-role">Observer</span>
-                </div>
-              </div>
-              <button className="logout-btn" onClick={onLogout} title="Logout">
-                <Icon path={paths.logout} />
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="user-details">
-                <div className="user-avatar" style={{background: '#94a3b8'}}>?</div>
-                <div className="user-meta">
-                  <span className="user-name">Guest Observer</span>
-                  <span className="user-role">Limited View</span>
-                </div>
-              </div>
-              <button className="logout-btn" onClick={() => onNavigate('login')} title="Login">
-                <Icon path={paths.login} />
-              </button>
-            </>
-          )}
-        </div>
-      </aside>
-
       <main className="dashboard-main">
         <header className="dashboard-header">
           <div>
@@ -201,7 +152,10 @@ export default function Dashboard({ onNavigate, onLogout, locationQuery, user })
                 <span className="label">PM 2.5</span>
                 <div className="value">{metrics.pm25} <span className="unit">µg/m³</span></div>
               </div>
-              <div className="metric-bar"><div className="fill good" style={{width: `${Math.min(100, (metrics.pm25/50)*100)}%`}}></div></div>
+              <div className="metric-bar">
+                <div className={`fill ${metrics.pm25 > 35 ? 'poor' : metrics.pm25 > 12 ? 'moderate' : 'good'}`}
+                     style={{width: `${Math.min(100, (metrics.pm25/50)*100)}%`}}></div>
+              </div>
             </div>
 
             <div className="card metric-card">
@@ -212,7 +166,10 @@ export default function Dashboard({ onNavigate, onLogout, locationQuery, user })
                 <span className="label">PM 10</span>
                 <div className="value">{metrics.pm10} <span className="unit">µg/m³</span></div>
               </div>
-              <div className="metric-bar"><div className="fill good" style={{width: `${Math.min(100, (metrics.pm10/100)*100)}%`}}></div></div>
+              <div className="metric-bar">
+                <div className={`fill ${metrics.pm10 > 54 ? 'poor' : metrics.pm10 > 20 ? 'moderate' : 'good'}`}
+                     style={{width: `${Math.min(100, (metrics.pm10/100)*100)}%`}}></div>
+              </div>
             </div>
 
             <div className="card metric-card">
@@ -223,7 +180,10 @@ export default function Dashboard({ onNavigate, onLogout, locationQuery, user })
                 <span className="label">NO2</span>
                 <div className="value">{metrics.no2} <span className="unit">ppb</span></div>
               </div>
-              <div className="metric-bar"><div className="fill good" style={{width: `${Math.min(100, (metrics.no2/50)*100)}%`}}></div></div>
+              <div className="metric-bar">
+                <div className={`fill ${metrics.no2 > 40 ? 'poor' : metrics.no2 > 15 ? 'moderate' : 'good'}`}
+                     style={{width: `${Math.min(100, (metrics.no2/50)*100)}%`}}></div>
+              </div>
             </div>
 
             <div className="card metric-card">
@@ -234,7 +194,10 @@ export default function Dashboard({ onNavigate, onLogout, locationQuery, user })
                 <span className="label">O3 (Ozone)</span>
                 <div className="value">{metrics.o3} <span className="unit">ppb</span></div>
               </div>
-              <div className="metric-bar"><div className="fill moderate" style={{width: `${Math.min(100, (metrics.o3/60)*100)}%`}}></div></div>
+              <div className="metric-bar">
+                <div className={`fill ${metrics.o3 > 70 ? 'poor' : metrics.o3 > 40 ? 'moderate' : 'good'}`}
+                     style={{width: `${Math.min(100, (metrics.o3/100)*100)}%`}}></div>
+              </div>
             </div>
           </div>
 
@@ -249,46 +212,56 @@ export default function Dashboard({ onNavigate, onLogout, locationQuery, user })
                 </div>
               </div>
               <div className="toggle-group">
-                <button className="active">Day</button>
-                <button>Week</button>
+                <button className={viewMode === 'day' ? 'active' : ''} onClick={() => setViewMode('day')}>Day</button>
+                <button className={viewMode === 'week' ? 'active' : ''} onClick={() => setViewMode('week')}>Week</button>
               </div>
             </div>
             
             <div className="chart-bars-container">
-              {[40, 35, 30, 45, 60, 80, 50, 20, 35, 60, 55, 40].map((h, i) => (
-                <div key={i} className={`bar-wrapper ${i===7 ? 'active' : ''}`}>
-                  <div className="bar" style={{height: `${h}%`}}></div>
-                  {i % 2 === 0 && <div className="label">{(i*2).toString().padStart(2,'0')}:00</div>}
-                </div>
-              ))}
+              {viewMode === 'day' ? (
+                (forecast.hourly || []).map((item, i) => {
+                  const barHeight = Math.min(100, (item.aqi / 300) * 100);
+                  const isCurrentHour = new Date().getHours() === item.hour;
+                  return (
+                    <div key={i} className={`bar-wrapper ${isCurrentHour ? 'active' : ''}`} title={`Time: ${item.time}, AQI: ${item.aqi}`}>
+                      <div className="bar" style={{height: `${barHeight || 10}%`}}></div>
+                      {i % 4 === 0 && <div className="label">{item.time}</div>}
+                    </div>
+                  );
+                })
+              ) : (
+                (forecast.daily || []).map((item, i) => {
+                  const barHeight = Math.min(100, (item.aqi / 300) * 100);
+                  return (
+                    <div key={i} className="bar-wrapper" title={`Day: ${item.day}, AQI: ${item.aqi}`}>
+                      <div className="bar" style={{height: `${barHeight || 10}%`}}></div>
+                      <div className="label">{item.day}</div>
+                    </div>
+                  );
+                })
+              )}
+              {((viewMode === 'day' && (!forecast.hourly || forecast.hourly.length === 0)) || 
+                (viewMode === 'week' && (!forecast.daily || forecast.daily.length === 0))) && (
+                <div style={{color:'#64748b', fontSize:'0.85rem', margin:'auto'}}>Temporal data unavailable</div>
+              )}
             </div>
           </div>
 
-          {/* Daily Guide */}
+          {/* Regulatory Directives */}
           <div className="card guide-card bg-primary text-white">
-            <h3 className="flex items-center gap-2"><Icon path={<path d="M21 12A9 9 0 1 1 3 12a9 9 0 0 1 18 0z" />} /> Daily Guide</h3>
+            <h3 className="flex items-center gap-2"><Icon path={<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />} /> Regulatory Directives</h3>
             <ul className="guide-list">
-              <li>
-                <div className="guide-icon"><Icon path={paths.run} /></div>
-                <div>
-                  <h4>Outdoor Exercise</h4>
-                  <p>Perfect conditions for high-intensity training. The air is crisp and clean.</p>
-                </div>
-              </li>
-              <li>
-                <div className="guide-icon"><Icon path={paths.window} /></div>
-                <div>
-                  <h4>Ventilation</h4>
-                  <p>Recommended to open windows for natural air circulation today.</p>
-                </div>
-              </li>
-              <li>
-                <div className="guide-icon"><Icon path={paths.mask} /></div>
-                <div>
-                  <h4>Vulnerable Groups</h4>
-                  <p>No specific precautions needed for sensitive individuals.</p>
-                </div>
-              </li>
+              {(apiData?.daily_guide || []).map((item, idx) => (
+                <li key={idx}>
+                  <div className="guide-icon">
+                    <Icon path={item.type === 'policy' ? paths.dashboard : (item.type === 'regulation' ? paths.settings : paths.alerts)} />
+                  </div>
+                  <div>
+                    <h4>{item.title}</h4>
+                    <p>{item.text}</p>
+                  </div>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -298,7 +271,7 @@ export default function Dashboard({ onNavigate, onLogout, locationQuery, user })
             <div className="map-overlay">
               <button className="btn btn-sm btn-glass"><Icon path={<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />} /> Expand Map</button>
               <div className="map-info">
-                <h4>Live Atmospheric Map</h4>
+                <h4>Temporal Atmospheric Degradation</h4>
                 <p>Real-time particle dispersion visualization</p>
               </div>
             </div>
@@ -308,37 +281,102 @@ export default function Dashboard({ onNavigate, onLogout, locationQuery, user })
           <div className="card emission-card">
             <h3>Local Emission Sources</h3>
             <div className="source-list">
-              <div className="source-item">
-                <div className="source-header"><span>VEHICLES</span><span>65%</span></div>
-                <div className="progress-bar"><div className="fill bg-primary" style={{width: '65%'}}></div></div>
-              </div>
-              <div className="source-item">
-                <div className="source-header"><span>INDUSTRIAL</span><span>12%</span></div>
-                <div className="progress-bar"><div className="fill" style={{width: '12%'}}></div></div>
-              </div>
-              <div className="source-item">
-                <div className="source-header"><span>CONSTRUCTION</span><span>18%</span></div>
-                <div className="progress-bar"><div className="fill" style={{width: '18%'}}></div></div>
-              </div>
-              <div className="source-item">
-                <div className="source-header"><span>OTHERS</span><span>5%</span></div>
-                <div className="progress-bar"><div className="fill" style={{width: '5%'}}></div></div>
-              </div>
+              {(apiData?.emission_sources?.breakdown || []).map((source, idx) => (
+                <div className="source-item" key={idx}>
+                  <div className="source-header"><span>{source.name}</span><span>{source.value}%</span></div>
+                  <div className="progress-bar">
+                    <div 
+                      className="fill" 
+                      style={{
+                        width: `${source.value}%`, 
+                        backgroundColor: source.color || 'var(--primary-color)'
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
             </div>
             <div className="note-box">
-              <p><strong>Observer Note:</strong> Vehicle emissions are currently peak for Monday morning commute. Expect a 15% drop by 11:00 AM.</p>
+              <p><strong>Observer Note:</strong> {apiData?.emission_sources?.note || "Data analysis in progress."}</p>
             </div>
           </div>
 
-        </div>
-      </main>
-      </div>
+          {/* Hyper-local PurpleAir Insight */}
+          <div className="card hyperlocal-card">
+            <div className="metric-header">
+              <div className="metric-icon text-primary"><Icon path={<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />} /></div>
+              <span className="text-xs font-bold text-gray uppercase tracking-wider">{apiData?.hyperlocal?.provider || 'PurpleAir'}</span>
+            </div>
+            <h3>Hyper-local Insight</h3>
+            <div className="hyperlocal-content">
+              <div className="stat">
+                <span className="label">Nearby Sensors</span>
+                <span className="value">{apiData?.hyperlocal?.sensor_count || 0}</span>
+              </div>
+              <div className="stat">
+                <span className="label">Avg PM2.5</span>
+                <span className="value">{apiData?.hyperlocal?.avg_pm25 || '--'}</span>
+              </div>
+            </div>
+            <p className="note">{apiData?.hyperlocal?.note || "Syncing with neighborhood sensor mesh..."}</p>
+          </div>
 
+          {/* Long-term Projection Timeline */}
+          <div className="card projection-card">
+            <div className="card-header-flex">
+              <div>
+                <h3>Temporal Atmospheric Degradation</h3>
+                <p>Growth Ratio: <span className="text-accent">{apiData?.projection?.growth_ratio}</span> Annually</p>
+              </div>
+              <div className={`risk-badge ${apiData?.projection?.risk_level?.toLowerCase()}`}>
+                {apiData?.projection?.risk_level} RISK
+              </div>
+            </div>
+            
+            <div className="tipping-point-alert">
+              <div className="alert-icon">⚠️</div>
+              <div className="alert-text">
+                <strong>Tipping Point:</strong> {apiData?.projection?.tipping_point_desc}
+              </div>
+            </div>
+
+            <div className="projection-timeline">
+              {(apiData?.projection?.milestones || []).map((m, i) => (
+                <div className="timeline-item" key={i}>
+                  <div className="period">{m.period}</div>
+                  <div className="aqi-val">{m.aqi}</div>
+                  <div className={`status ${m.status.toLowerCase()}`}>{m.status}</div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="projection-footer">
+              <p>Projections based on current vehicular and industrial emission velocity.</p>
+            </div>
+          </div>
+
+          {/* Environmental News Section */}
+          <div className="card news-card">
+            <h3>Environmental Intelligence</h3>
+            <div className="news-list">
+              {(apiData?.news || []).map((art, idx) => (
+                <a href={art.url} target="_blank" rel="noopener noreferrer" className="news-item" key={idx}>
+                  {art.image && <img src={art.image} alt="News" className="news-img" />}
+                  <div className="news-content">
+                    <span className="news-source">{art.source} • {new Date(art.publishedAt).toLocaleDateString()}</span>
+                    <h4>{art.title}</h4>
+                    <p>{art.description}</p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
       <footer className="site-footer">
         <div className="container">
           <div className="footer-grid">
             <div className="footer-brand">
-              <div className="brand">Aura<span>Intelligence</span></div>
+              <div className="brand">Air<span>Intelligence</span></div>
               <p className="footer-desc">
                 Providing real-time atmospheric insights with precision and clarity. The air we breathe, decoded.
               </p>
@@ -372,7 +410,7 @@ export default function Dashboard({ onNavigate, onLogout, locationQuery, user })
           </div>
 
           <div className="footer-bottom">
-            <div className="copyright">© 2024 Aura Intelligence. Breathing room for your data.</div>
+            <div className="copyright">© 2026 Air Intelligence. Breathing room for your data.</div>
             <div className="social-icons">
               <a href="#" aria-label="Globe"><Icon path={<><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></>} /></a>
               <a href="#" aria-label="Share"><Icon path={<><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></>} /></a>
@@ -380,6 +418,7 @@ export default function Dashboard({ onNavigate, onLogout, locationQuery, user })
           </div>
         </div>
       </footer>
+      </main>
     </>
   );
 }

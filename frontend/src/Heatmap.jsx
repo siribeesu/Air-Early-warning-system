@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Circle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Circle, CircleMarker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import './Heatmap.css';
 import { ML_API_BASE_URL } from './config';
 
 // Helper to update map view when coordinates change
-function ChangeView({ center, zoom }) {
+function MapController({ center, zoom, zoomLevel }) {
   const map = useMap();
-  map.setView(center, zoom);
+  useEffect(() => {
+    if (center) map.setView(center, zoom || map.getZoom());
+  }, [center, zoom, map]);
+
+  useEffect(() => {
+    if (zoomLevel !== undefined) map.setZoom(zoomLevel);
+  }, [zoomLevel, map]);
+
   return null;
 }
 
@@ -32,10 +39,16 @@ const paths = {
   login: <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
 };
 
-export default function Heatmap({ onNavigate, onLogout, locationQuery, user }) {
+export default function Heatmap({ onNavigate, onLogout, locationQuery, setSearchQuery, user }) {
   const [apiData, setApiData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [localSearch, setLocalSearch] = useState(locationQuery || '');
+  const [zoomLevel, setZoomLevel] = useState(13);
+
+  useEffect(() => {
+    setLocalSearch(locationQuery || '');
+  }, [locationQuery]);
 
   useEffect(() => {
     let active = true;
@@ -43,7 +56,7 @@ export default function Heatmap({ onNavigate, onLogout, locationQuery, user }) {
       setLoading(true);
       setError(null);
       try {
-        const query = locationQuery || 'San Francisco';
+        const query = locationQuery || (user?.saved_locations && user.saved_locations.length > 0 ? user.saved_locations[0].name : 'London, UK');
         const res = await fetch(`${ML_API_BASE_URL}/api/aqi?location=${encodeURIComponent(query)}`);
         const json = await res.json();
         if (json.status === 'success') {
@@ -61,106 +74,84 @@ export default function Heatmap({ onNavigate, onLogout, locationQuery, user }) {
     return () => { active = false; };
   }, [locationQuery]);
 
-  if (loading) return <div className="heatmap-layout"><div style={{margin:'auto', color:'#fff', background:'rgba(0,0,0,0.5)', padding:'2rem', borderRadius:'20px', backdropFilter:'blur(10px)'}}>Calibrating Satellite Feeds...</div></div>;
+  if (loading) return (
+    <main className="heatmap-main" style={{display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a'}}>
+      <div style={{color: '#94a3b8', fontSize: '0.9rem', fontWeight: '500', letterSpacing: '1px'}}>Synchronizing...</div>
+    </main>
+  );
 
   const data = apiData?.data || {};
   const currentCategory = apiData?.category || 'N/A';
   const aqi = Math.round(data.aqi || 0);
   
-  // Dynamic map filter based on AQI severity
-  const getMapFilter = (aqiValue) => {
-    if (aqiValue <= 50) return 'contrast(0.8) sepia(0.2) hue-rotate(180deg) saturate(1.5)'; // Greenish/Cool
-    if (aqiValue <= 100) return 'contrast(0.9) sepia(0.2) hue-rotate(60deg) saturate(1.5)';  // Yellowish
-    return 'contrast(0.8) sepia(0.2) hue-rotate(320deg) saturate(1.5)'; // Reddish/Heat
+  const getAQIColor = (aqiValue) => {
+    if (aqiValue <= 50) return '#00e400'; // Green
+    if (aqiValue <= 100) return '#ffff00'; // Yellow
+    if (aqiValue <= 150) return '#ff7e00'; // Orange
+    if (aqiValue <= 200) return '#ff0000'; // Red
+    if (aqiValue <= 300) return '#8f3f97'; // Purple
+    return '#7e0023'; // Maroon
   };
+
+  const handleLocalSearch = (e) => {
+    if (e.key === 'Enter') {
+      if (setSearchQuery) {
+        setSearchQuery(localSearch);
+      }
+    }
+  };
+
   return (
-    <div className="heatmap-layout">
-      {/* Sidebar */}
-      <aside className="heatmap-sidebar">
-        <div className="heatmap-sidebar-brand">
-          <h3>Aura Intelligence</h3>
-          <p>The Ethereal Observer</p>
-        </div>
-
-        <nav className="heatmap-nav">
-          <ul>
-            <li><a href="#" onClick={() => onNavigate('landing')}><Icon path={paths.home} /> Home</a></li>
-            <li><a href="#" onClick={() => onNavigate('dashboard')}><Icon path={paths.dashboard} /> Dashboard</a></li>
-            <li><a href="#" className="active" onClick={() => onNavigate('heatmap')}><Icon path={paths.heatmap} /> Heatmap</a></li>
-            <li><a href="#" onClick={() => onNavigate('forecast')}><Icon path={paths.forecast} /> Forecast</a></li>
-            <li><a href="#" onClick={() => onNavigate('alerts')}><Icon path={paths.alerts} /> Alerts</a></li>
-          </ul>
-        </nav>
-
-        <div className="user-sidebar-info">
-          {user ? (
-            <>
-              <div className="user-details">
-                <div className="user-avatar" style={{background: 'var(--accent-color)'}}>{user.name?.[0] || 'O'}</div>
-                <div className="user-meta">
-                  <span className="user-name">{user.name}</span>
-                  <span className="user-role">Observer</span>
-                </div>
-              </div>
-              <button className="logout-btn" onClick={onLogout} title="Logout">
-                <Icon path={paths.logout} />
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="user-details">
-                <div className="user-avatar" style={{background: '#94a3b8'}}>?</div>
-                <div className="user-meta">
-                  <span className="user-name">Guest Observer</span>
-                  <span className="user-role">Limited View</span>
-                </div>
-              </div>
-              <button className="logout-btn" onClick={() => onNavigate('login')} title="Login">
-                <Icon path={paths.login} />
-              </button>
-            </>
-          )}
-        </div>
-
-
-      </aside>
-
+    <>
       {/* Main Map Area */}
       <main className="heatmap-main">
         <div className="map-wrapper" style={{ height: '100%', width: '100%' }}>
           {data.lat && data.lon && (
             <MapContainer 
               center={[data.lat, data.lon]} 
-              zoom={12} 
+              zoom={zoomLevel} 
               scrollWheelZoom={true}
               zoomControl={false}
               style={{ height: '100%', width: '100%', background: '#0f172a' }}
             >
-              <ChangeView center={[data.lat, data.lon]} zoom={12} />
+              <MapController center={[data.lat, data.lon]} zoomLevel={zoomLevel} />
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
               />
               
-              {/* Pollution Heat Visualization */}
+              {/* Regional Ambient Pollution (City Level) */}
               <Circle
                 center={[data.lat, data.lon]}
                 pathOptions={{ 
-                  fillColor: aqi <= 50 ? '#10b981' : aqi <= 100 ? '#f59e0b' : '#ef4444', 
+                  fillColor: getAQIColor(aqi), 
                   color: 'transparent',
-                  fillOpacity: 0.4
+                  fillOpacity: 0.25
                 }}
-                radius={3000}
+                radius={5000}
               />
-              <Circle
-                center={[data.lat, data.lon]}
-                pathOptions={{ 
-                  fillColor: aqi <= 50 ? '#10b981' : aqi <= 100 ? '#f59e0b' : '#ef4444', 
-                  color: 'transparent',
-                  fillOpacity: 0.2
-                }}
-                radius={6000}
-              />
+
+              {/* Hyper-local PurpleAir Simulation Points (Using CircleMarker for pixel-constant size) */}
+              {Array.from({length: 8}).map((_, i) => {
+                const angle = (i / 8) * 2 * Math.PI;
+                const r = 0.015;
+                const sLat = data.lat + r * Math.cos(angle);
+                const sLon = data.lon + r * Math.sin(angle);
+                const sAqi = aqi + (Math.random() * 40 - 20); // Variety in neighborhood
+                return (
+                  <CircleMarker
+                    key={i}
+                    center={[sLat, sLon]}
+                    pathOptions={{ 
+                      fillColor: getAQIColor(sAqi), 
+                      color: '#ffffff',
+                      weight: 2,
+                      fillOpacity: 1
+                    }}
+                    radius={8}
+                  />
+                );
+              })}
             </MapContainer>
           )}
         </div>
@@ -168,8 +159,13 @@ export default function Heatmap({ onNavigate, onLogout, locationQuery, user }) {
         {/* Search Bar */}
         <div className="heatmap-search">
           <Icon path={<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>} className="text-gray" />
-          <input type="text" placeholder="Explore regions, cities, or sensors..." />
-          <span className="heatmap-shortcut">⌘ K</span>
+          <input 
+            type="text" 
+            placeholder="Search atmospheric zones..." 
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
+            onKeyDown={handleLocalSearch}
+          />
         </div>
 
         {/* Tool Strips */}
@@ -189,8 +185,8 @@ export default function Heatmap({ onNavigate, onLogout, locationQuery, user }) {
         </div>
 
         <div className="heatmap-zoom">
-          <button className="zoom-btn">+</button>
-          <button className="zoom-btn">−</button>
+          <button className="zoom-btn" onClick={() => setZoomLevel(prev => Math.min(prev + 1, 18))}>+</button>
+          <button className="zoom-btn" onClick={() => setZoomLevel(prev => Math.max(prev - 1, 1))}>−</button>
         </div>
 
         {/* Info Card overlay */}
@@ -244,8 +240,7 @@ export default function Heatmap({ onNavigate, onLogout, locationQuery, user }) {
             <span>300+</span>
           </div>
         </div>
-
       </main>
-    </div>
+    </>
   );
 }

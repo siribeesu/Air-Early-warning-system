@@ -58,12 +58,38 @@ const activeAlerts = [
     type: 'info',
     title: 'System Update',
     time: '1 day ago',
-    description: 'Aura Intelligence has re-calibrated sensors in the West Coast grid. You may notice minor historical data adjustments.',
+    description: 'Air Intelligence has re-calibrated sensors in the West Coast grid. You may notice minor historical data adjustments.',
     tags: []
   }
 ];
 
+// User Settings Store (Mock persistence)
+let userSettings = {
+  saved_locations: ["Central Park, NY"],
+  notification_frequency: "Everyday",
+  notifications_enabled: true,
+  risk_threshold: "Moderate",
+  last_updated: new Date().toISOString()
+};
+
 // Routes
+app.get('/api/user/settings', (req, res) => {
+  res.json(userSettings);
+});
+
+app.put('/api/user/settings', (req, res) => {
+  const { saved_locations, notification_frequency, notifications_enabled, risk_threshold } = req.body;
+  userSettings = {
+    ...userSettings,
+    saved_locations: saved_locations || userSettings.saved_locations,
+    notification_frequency: notification_frequency || userSettings.notification_frequency,
+    notifications_enabled: notifications_enabled !== undefined ? notifications_enabled : userSettings.notifications_enabled,
+    risk_threshold: risk_threshold || userSettings.risk_threshold,
+    last_updated: new Date().toISOString()
+  };
+  res.json({ message: "Settings synchronized successfully", settings: userSettings });
+});
+
 app.get('/api/aqi/current', (req, res) => {
   res.json(currentAQI);
 });
@@ -82,10 +108,10 @@ app.get('/api/health', (req, res) => {
 
 // Root route
 app.get('/', (req, res) => {
-  res.json({ message: 'Aura Intelligence API v1', status: 'healthy' });
+  res.json({ message: 'Air Intelligence API v1', status: 'healthy' });
 });
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Aura Intelligence] Backend running on port ${PORT}`);
+  console.log(`[Air Intelligence] Backend running on port ${PORT}`);
 });

@@ -5,6 +5,8 @@ import Heatmap from './Heatmap'
 import Forecast from './Forecast'
 import Alerts from './Alerts'
 import Auth from './Auth'
+import Settings from './Settings'
+import Sidebar from './Sidebar'
 
 // SVGs as inline components to avoid extra dependencies while keeping high quality
 const SparklesIcon = () => (
@@ -47,7 +49,7 @@ const ActivityIcon = () => (
 
 function App() {
   const [currentView, setCurrentView] = useState('landing')
-  const [searchQuery, setSearchQuery] = useState('Central Park, NY')
+  const [searchQuery, setSearchQuery] = useState('')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [user, setUser] = useState(null)
 
@@ -71,34 +73,24 @@ function App() {
     return <Auth initialMode="signup" onNavigate={setCurrentView} onLogin={handleLogin} />
   }
 
-  if (currentView === 'dashboard') {
-    return (
-      <div className="app-wrapper">
-        <Dashboard onNavigate={setCurrentView} onLogout={handleLogout} locationQuery={searchQuery} user={user} />
-      </div>
-    )
+  const renderAppView = () => {
+    switch (currentView) {
+      case 'dashboard': return <Dashboard onNavigate={setCurrentView} onLogout={handleLogout} locationQuery={searchQuery} user={user} />;
+      case 'heatmap': return <Heatmap onNavigate={setCurrentView} onLogout={handleLogout} locationQuery={searchQuery} setSearchQuery={setSearchQuery} user={user} />;
+      case 'forecast': return <Forecast onNavigate={setCurrentView} onLogout={handleLogout} locationQuery={searchQuery} user={user} />;
+      case 'alerts': return <Alerts onNavigate={setCurrentView} onLogout={handleLogout} locationQuery={searchQuery} user={user} />;
+      case 'settings': return <Settings onNavigate={setCurrentView} onLogout={handleLogout} user={user} />;
+      default: return null;
+    }
   }
 
-  if (currentView === 'heatmap') {
-    return (
-      <div className="app-wrapper">
-        <Heatmap onNavigate={setCurrentView} onLogout={handleLogout} locationQuery={searchQuery} user={user} />
-      </div>
-    )
-  }
+  const appViews = ['dashboard', 'heatmap', 'forecast', 'alerts', 'settings'];
 
-  if (currentView === 'forecast') {
+  if (appViews.includes(currentView)) {
     return (
-      <div className="app-wrapper">
-        <Forecast onNavigate={setCurrentView} onLogout={handleLogout} locationQuery={searchQuery} user={user} />
-      </div>
-    )
-  }
-
-  if (currentView === 'alerts') {
-    return (
-      <div className="app-wrapper">
-        <Alerts onNavigate={setCurrentView} onLogout={handleLogout} locationQuery={searchQuery} user={user} />
+      <div className="dashboard-layout">
+        <Sidebar onNavigate={setCurrentView} onLogout={handleLogout} user={user} currentView={currentView} />
+        {renderAppView()}
       </div>
     )
   }
@@ -107,7 +99,18 @@ function App() {
     <div className="app-wrapper">
       <header className="site-header">
         <div className="container header-container">
-          <div className="brand">Aura<span>Intelligence</span></div>
+          <div className="brand">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="url(#brand-grad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '8px'}}>
+              <defs>
+                <linearGradient id="brand-grad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#0ea5e9"/>
+                  <stop offset="100%" stopColor="#2563eb"/>
+                </linearGradient>
+              </defs>
+              <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
+            </svg>
+            Air<span>Intelligence</span>
+          </div>
           <nav>
             <ul className="nav-links">
               <li><a href="#" onClick={() => setCurrentView('dashboard')}>Dashboard</a></li>
@@ -137,74 +140,96 @@ function App() {
         <section className="hero">
           <div className="hero-content animate-fade-in delay-100">
             <div className="badge-outline">
-              <SparklesIcon /> NEXT-GEN ENVIRONMENTAL MONITORING
+              <SparklesIcon /> ATMOSPHERIC INTELLIGENCE NETWORK (v2.4)
             </div>
             <h1 className="hero-title">
-              AI-Powered Air<br />Quality <span>Early Warning System</span>
+              Advanced Air Quality <span>Early Warning System</span>
             </h1>
             <p className="hero-desc">
-              Protect your respiratory health with the world's most accurate real-time AQI monitoring. Our neural networks predict pollution spikes before they happen, giving you the clarity to breathe better.
+              Harnessing multi-spectral satellite data and hyper-local neural sensors to predict toxic dispersion patterns before they impact society.
             </p>
             
             <div className="search-bar">
               <LocationIcon />
               <input 
                 type="text" 
-                placeholder="Enter your location" 
+                placeholder="Search by city or sensor ID..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') setCurrentView('dashboard'); }}
               />
-              <button className="btn btn-primary" onClick={() => setCurrentView('dashboard')}>Check Air Quality</button>
-            </div>
-
-            <div className="aqi-scale">
-              <div className="scale-item">
-                <div className="dot good"></div>
-                <span className="scale-label">Good</span>
-                <span className="scale-value">0-50</span>
-              </div>
-              <div className="scale-item">
-                <div className="dot moderate"></div>
-                <span className="scale-label">Moderate</span>
-                <span className="scale-value">51-100</span>
-              </div>
-              <div className="scale-item">
-                <div className="dot poor"></div>
-                <span className="scale-label">Poor</span>
-                <span className="scale-value">101+</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="hero-visual animate-fade-in delay-200">
-            <img 
-              src="https://images.unsplash.com/photo-1449844908441-8829872d2607?auto=format&fit=crop&q=80&w=1200" 
-              alt="City Waterfront" 
-              className="main-img" 
-            />
-            
-            <div className="badge-live">
-              <span>LIVE AQI</span>
-              <span>24</span>
-              <span>OPTIMAL</span>
-            </div>
-
-            <div className="badge-info">
-              <div className="info-header">
-                <div className="info-icon"><WindIcon /></div>
-                <div className="info-title">
-                  <span>CURRENT HEALTH RISK</span>
-                  <span>Minimal Concern</span>
-                </div>
-              </div>
-              <p className="info-text">
-                The current atmosphere in San Francisco is exceptionally crisp and safe for outdoor activities.
-              </p>
+              <button className="btn btn-primary" onClick={() => setCurrentView('dashboard')}>Initiate Scan</button>
             </div>
           </div>
         </section>
         </div>
+
+      <section className="pollutant-intelligence animate-fade-in delay-200">
+        <div className="container">
+          <div className="section-header">
+            <h2>Pollutant Intelligence</h2>
+            <p>Critical threshold analysis for primary atmospheric contaminants.</p>
+          </div>
+          <div className="intelligence-grid">
+            <div className="intel-card">
+              <div className="intel-label">PM 2.5</div>
+              <h3>Fine Particulate Matter</h3>
+              <p>Microscopic particles that bypass respiratory defenses to enter the bloodstream directly. Primary driver of cardiovascular degradation.</p>
+              <div className="intel-threshold text-poor">Danger: &gt;35µg/m³</div>
+            </div>
+            <div className="intel-card">
+              <div className="intel-label">NO2</div>
+              <h3>Nitrogen Dioxide</h3>
+              <p>Highly reactive gas primarily from vehicle combustion. Causes severe airway inflammation and photochemical smog formation.</p>
+              <div className="intel-threshold text-moderate">Alert: &gt;40ppb</div>
+            </div>
+            <div className="intel-card">
+              <div className="intel-label">O3</div>
+              <h3>Ground-Level Ozone</h3>
+              <p>Formed by chemical reactions between oxides of nitrogen and VOCs in sunlight. Reduces lung function and triggers asthma.</p>
+              <div className="intel-threshold text-moderate">Warning: &gt;70ppb</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <section className="crisis-section animate-fade-in delay-200">
+        <div className="container">
+          <div className="crisis-header">
+            <span className="badge-outline" style={{borderColor: '#ef4444', color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)'}}>
+              CRITICAL REGION ALERT
+            </span>
+            <h2>India's Accelerating Air Quality Crisis</h2>
+            <p>A day-by-day analysis of the sub-continent's atmospheric degradation.</p>
+          </div>
+          
+          <div className="crisis-grid">
+            <div className="crisis-card">
+              <div className="crisis-content">
+                <div className="crisis-stat text-poor">42%</div>
+                <h4>Winter Spike Velocity</h4>
+                <p>During winter months (Oct-Jan), Northern India sees a 42% faster day-by-day accumulation of PM2.5 due to seasonal agricultural burning and severe thermal inversion.</p>
+              </div>
+            </div>
+            <div className="crisis-card">
+              <div className="crisis-content">
+                <div className="crisis-stat text-moderate">1.2M+</div>
+                <h4>Annual Health Impact</h4>
+                <p>Prolonged exposure to PM10 and NO2 in Tier-1 cities like Delhi and Mumbai leads to an estimated 1.2 million severe respiratory hospital admissions annually.</p>
+              </div>
+            </div>
+            <div className="crisis-card">
+              <div className="crisis-content">
+                <div className="crisis-stat text-poor">9 of 10</div>
+                <h4>Global Toxic Ranking</h4>
+                <p>Nine of the top ten most polluted cities globally are routinely located in the Indo-Gangetic Plain, showing an exponential day-over-day toxic growth trajectory.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
 
       <section className="observer-section">
         <div className="container">
@@ -269,7 +294,7 @@ function App() {
         <div className="container">
           <div className="footer-grid">
             <div className="footer-brand">
-              <div className="brand">Aura<span>Intelligence</span></div>
+              <div className="brand">Air<span>Intelligence</span></div>
               <p className="footer-desc">
                 Synthesizing global sensor data into actionable wellness intelligence for the modern world.
               </p>
@@ -303,7 +328,7 @@ function App() {
           </div>
 
           <div className="footer-bottom">
-            <div className="copyright">© 2024 Aura Intelligence. Breathing room for your data.</div>
+            <div className="copyright">© 2026 Air Intelligence. Breathing room for your data.</div>
             <div className="social-icons">
               <a href="#" aria-label="Globe"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></a>
               <a href="#" aria-label="Share"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></a>

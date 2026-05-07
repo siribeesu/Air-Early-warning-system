@@ -27,9 +27,9 @@ export default function Auth({ initialMode = 'login', onNavigate, onLogin }) {
           alt="Abstract clouds" 
           className="auth-visual-bg" 
         />
-        <div className="brand" style={{ position: 'relative', zIndex: 10 }}>Aura<span>Intelligence</span></div>
+        <div className="brand" style={{ position: 'relative', zIndex: 10 }}>Air<span>Intelligence</span></div>
         <div className="auth-visual-content">
-          <p className="auth-quote">"Air is the matrix of our life. Aura Intelligence finally decodes it."</p>
+          <p className="auth-quote">"Air is the matrix of our life. Air Intelligence finally decodes it."</p>
           <div className="auth-quote-author">Secured with enterprise-grade encryption</div>
         </div>
       </div>
